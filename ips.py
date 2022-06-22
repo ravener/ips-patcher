@@ -1,14 +1,16 @@
 #!/usr/bin/python3
 
 import struct
-import sys
 from io import BytesIO
+from pathlib import Path
+from argparse import ArgumentParser
+
 
 def parse_ips_file(data):
     patches = []
     (P, A, T, C, H) = struct.unpack_from(">ccccc", data)
 
-    if P != b'P' or A != b'A' or T != b'T' or C != b'C' or H != b'H':
+    if P != b"P" or A != b"A" or T != b"T" or C != b"C" or H != b"H":
         raise Exception("Invalid file header, not an IPS file.")
 
     offset = 5
@@ -31,28 +33,25 @@ def parse_ips_file(data):
             offset += 3
             patches.append((target_offset, length, run_len, value))
         else:
-            patch = data[offset:offset + length]
+            patch = data[offset : offset + length]
             offset += length
             patches.append((target_offset, length, patch))
 
         # Check for EOF
         if offset + 3 <= len(data):
             (E, O, F) = struct.unpack_from(">ccc", data, offset)
-            if E == b'E' and O == b'O' and F == b'F':
+            if E == b"E" and O == b"O" and F == b"F":
                 EOF = True
 
     return patches
 
+
 # Adds a .patched extension before the actual file extension.
 # file.rom -> file.patched.rom
 def filename(name):
-    split = name.split(".")
+    path = Path(name)
 
-    if len(split) > 1:
-        split.insert(-1, "patched")
-        return ".".join(split)
-    else:
-        return split[0] + ".patched"
+    return path.with_suffix(".patched" + path.suffix)
 
 
 def patch(rom, patches):
@@ -71,36 +70,28 @@ def patch(rom, patches):
     return data.getvalue()
 
 
-def main(argv):
-    print("IPS Patcher by ravener https://github.com/ravener")
+def main():
+    parser = ArgumentParser(description="Patch files using a .ips patch file.")
 
-    if len(argv) < 2:
-        print("Usage: <IPS Patch File> <ROM> [Output file]")
-        return 1
+    parser.add_argument("input", help="Input file to patch")
+    parser.add_argument("patch", help="The IPS patch file to apply")
+    parser.add_argument("output", help="Output File", nargs="?")
 
-    (ips_name, rom_name, *out) = argv
+    args = parser.parse_args()
 
-    output = out[0] if out else filename(rom_name)
-    print(f"Output File: {output}")
+    input_file = Path(args.input)
+    patch_file = Path(args.patch)
+    output_file = Path(args.output or filename(args.input))
 
-    try:
-        with open(ips_name, "rb") as ips:
-            print(f"Parsing IPS file '{ips_name}'")
-            patches = parse_ips_file(ips.read())
+    print(f"Parsing IPS File '{patch_file}'")
+    patches = parse_ips_file(patch_file.read_bytes())
 
-            with open(rom_name, "rb") as rom:
-                print(f"Patching ROM '{rom_name}'")
-                patched = patch(rom.read(), patches)
+    print(f"Patching File '{input_file}'")
+    patched = patch(input_file.read_bytes(), patches)
 
-                print("Writing output.")
-                with open(output, "wb") as outfile:
-                    outfile.write(patched)
-    except Exception as e:
-        print(e)
-        return 1
-
-    return 0
+    print(f"Writing Output to '{output_file}'")
+    output_file.write_bytes(patched)
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    main()
