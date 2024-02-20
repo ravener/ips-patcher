@@ -2,6 +2,7 @@
 A simple IPS Patcher implemented in Python.
 
 ## Usage
+
 ```sh
 usage: ips.py [-h] input patch [output]
 
@@ -14,7 +15,9 @@ positional arguments:
 options:
   -h, --help  show this help message and exit
 ```
+
 Example:
+
 ```sh
 $ python ips.py rom.gba patch.ips
 ```

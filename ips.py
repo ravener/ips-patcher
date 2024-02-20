@@ -57,7 +57,7 @@ def filename(name):
 def patch(rom, patches):
     data = BytesIO(rom)
 
-    for (offset, length, *patch) in patches:
+    for offset, length, *patch in patches:
         # RLE
         if length == 0:
             (run_len, value) = patch
