@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
 import struct
+from argparse import ArgumentParser
 from io import BytesIO
 from pathlib import Path
-from argparse import ArgumentParser
 
 
 def parse_ips_file(data):
