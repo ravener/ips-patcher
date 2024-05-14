@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 
 
-def parse_ips_file(data):
+def parse_ips_file(data: bytes):
     patches = []
     (P, A, T, C, H) = struct.unpack_from(">ccccc", data)
 
@@ -48,13 +48,13 @@ def parse_ips_file(data):
 
 # Adds a .patched extension before the actual file extension.
 # file.rom -> file.patched.rom
-def filename(name):
+def filename(name: str) -> Path:
     path = Path(name)
 
     return path.with_suffix(".patched" + path.suffix)
 
 
-def patch(rom, patches):
+def patch(rom, patches) -> bytes:
     data = BytesIO(rom)
 
     for offset, length, *patch in patches:
@@ -70,7 +70,7 @@ def patch(rom, patches):
     return data.getvalue()
 
 
-def main():
+def main() -> None:
     parser = ArgumentParser(description="Patch files using a .ips patch file.")
 
     parser.add_argument("input", help="Input file to patch")
