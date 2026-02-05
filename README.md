@@ -4,6 +4,8 @@ A simple IPS Patcher implemented in Python.
 
 ## Usage
 
+If you have [Python](https://www.python.org/) installed, you can simply run the [ips.py](ips.py) file directly, or [download a bundled release](https://github.com/ravener/ips-patcher/releases) to run standalone without having to install python.
+
 ```sh
 usage: ips.py [-h] input patch [output]
 
