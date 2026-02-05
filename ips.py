@@ -1,47 +1,66 @@
 #!/usr/bin/python3
 
-import struct
 from argparse import ArgumentParser
-from io import BytesIO
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Union
 
 
-def parse_ips_file(data: bytes):
+@dataclass
+class Patch:
+    """Represents a patch data for the intended offset"""
+
+    offset: int
+    data: bytes
+
+
+@dataclass
+class RLEPatch:
+    """Represents a Run Length Encoding (RLE) patch for the intended offset"""
+
+    offset: int
+    run_length: int
+    value: int
+
+
+def parse_ips_file(data: bytes) -> list[Union[Patch, RLEPatch]]:
+    if len(data) < 8:
+        raise ValueError("IPS File too short")
+
     patches = []
-    (P, A, T, C, H) = struct.unpack_from(">ccccc", data)
 
-    if P != b"P" or A != b"A" or T != b"T" or C != b"C" or H != b"H":
-        raise Exception("Invalid file header, not an IPS file.")
+    # Verify file magic header
+    if data[:5] != b"PATCH":
+        raise ValueError("Invalid file header, not an IPS file.")
 
     offset = 5
-    EOF = False
 
-    while not EOF:
+    while True:
+        if offset + 5 > len(data):
+            raise ValueError("Truncated or corrupt IPS file: incomplete patch record")
+
         # Parse patch header.
         # 3 Bytes target offset.
         # 2 Bytes patch length
-        (a, b, c, length) = struct.unpack_from(">BBBH", data, offset)
-        offset += 5
+        target_offset = int.from_bytes(data[offset : offset + 3])
+        length = int.from_bytes(data[offset + 3 : offset + 5])
 
-        # Because there's no integer type for 3 bytes
-        # we parsed the individual bytes and combine it here
-        target_offset = int.from_bytes([a, b, c], "big")
+        offset += 5
 
         # RLE Patch
         if length == 0:
-            (run_len, value) = struct.unpack_from(">HB", data, offset)
+            run_length = int.from_bytes(data[offset : offset + 2])
+            value = data[offset + 2]
             offset += 3
-            patches.append((target_offset, length, run_len, value))
+            patches.append(RLEPatch(target_offset, run_length, value))
         else:
             patch = data[offset : offset + length]
             offset += length
-            patches.append((target_offset, length, patch))
+            patches.append(Patch(target_offset, patch))
 
         # Check for EOF
-        if offset + 3 <= len(data):
-            (E, O, F) = struct.unpack_from(">ccc", data, offset)
-            if E == b"E" and O == b"O" and F == b"F":
-                EOF = True
+        if data[offset : offset + 3] == b"EOF":
+            break
 
     return patches
 
@@ -54,20 +73,19 @@ def filename(name: str) -> Path:
     return path.with_suffix(".patched" + path.suffix)
 
 
-def patch(rom, patches) -> bytes:
-    data = BytesIO(rom)
+def patch(rom: bytes, patches: list[Union[Patch, RLEPatch]]) -> bytes:
+    data = bytearray(rom)
 
-    for offset, length, *patch in patches:
-        # RLE
-        if length == 0:
-            (run_len, value) = patch
-            data.seek(offset)
-            data.write(bytes([value] * run_len))
+    for patch in patches:
+        offset = patch.offset
+
+        if isinstance(patch, RLEPatch):
+            run_length = patch.run_length
+            data[offset : offset + run_length] = bytes([patch.value] * run_length)
         else:
-            data.seek(offset)
-            data.write(patch[0])
+            data[offset : offset + len(patch.data)] = patch.data
 
-    return data.getvalue()
+    return bytes(data)
 
 
 def main() -> None:
@@ -83,14 +101,20 @@ def main() -> None:
     patch_file = Path(args.patch)
     output_file = Path(args.output or filename(args.input))
 
-    print(f"Parsing IPS File '{patch_file}'")
-    patches = parse_ips_file(patch_file.read_bytes())
+    try:
+        print(f"Parsing IPS file '{patch_file}'")
+        patches = parse_ips_file(patch_file.read_bytes())
+        print(f"Found {len(patches)} patch records")
 
-    print(f"Patching File '{input_file}'")
-    patched = patch(input_file.read_bytes(), patches)
+        print(f"Patching file '{input_file}'")
+        patched = patch(input_file.read_bytes(), patches)
 
-    print(f"Writing Output to '{output_file}'")
-    output_file.write_bytes(patched)
+        print(f"Writing output to '{output_file}'")
+        output_file.write_bytes(patched)
+    except FileNotFoundError as e:
+        print(f"Error: File not found - {e.filename}")
+    except ValueError as e:
+        print(f"Error: {e}")
 
 
 if __name__ == "__main__":
