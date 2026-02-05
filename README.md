@@ -11,7 +11,8 @@ Patch files using a .ips patch file.
 
 positional arguments:
   input       Input file to patch
-  patch       The IPS patch file to apply                               output      Output File
+  patch       The IPS patch file to apply
+  output      Output File
 
 options:
   -h, --help  show this help message and exit
@@ -24,4 +25,5 @@ $ python ips.py rom.gba patch.ips
 ```
 
 ## License
+
 [MIT License](LICENSE)
