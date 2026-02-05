@@ -1,0 +1,89 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+
+permissions:
+  contents: write  # Required to create releases
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: ips-patcher.exe
+            asset_name: ips-patcher-windows.exe
+          - os: ubuntu-latest
+            artifact_name: ips-patcher
+            asset_name: ips-patcher-linux
+          - os: macos-latest
+            artifact_name: ips-patcher
+            asset_name: ips-patcher-macos
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+      
+      - name: Build with PyInstaller
+        run: pyinstaller --onefile --name ips-patcher ips.py
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: dist/${{ matrix.artifact_name }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/ips-patcher-windows.exe/ips-patcher.exe
+            artifacts/ips-patcher-linux/ips-patcher
+            artifacts/ips-patcher-macos/ips-patcher
+          body: |
+            ## IPS Patcher Release ${{ github.ref_name }}
+            
+            Download the appropriate executable for your platform:
+            - **Windows**: `ips-patcher-windows.exe`
+            - **Linux**: `ips-patcher-linux`
+            - **macOS**: `ips-patcher-macos`
+            
+            ### Usage
+            ```
+            ./ips-patcher input.rom patch.ips [output.rom]
+            ```
+            
+            For more information, see the [README](https://github.com/${{ github.repository }}/blob/main/README.md).
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
