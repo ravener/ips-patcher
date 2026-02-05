@@ -62,13 +62,19 @@ jobs:
         with:
           path: artifacts
       
+      - name: Prepare release files
+        run: |
+          mkdir release-files
+          cp artifacts/ips-patcher-windows.exe/ips-patcher.exe release-files/ips-patcher-windows.exe
+          cp artifacts/ips-patcher-linux/ips-patcher release-files/ips-patcher-linux
+          cp artifacts/ips-patcher-macos/ips-patcher release-files/ips-patcher-macos
+          chmod +x release-files/ips-patcher-linux
+          chmod +x release-files/ips-patcher-macos
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            artifacts/ips-patcher-windows.exe/ips-patcher.exe
-            artifacts/ips-patcher-linux/ips-patcher
-            artifacts/ips-patcher-macos/ips-patcher
+          files: release-files/*
           body: |
             ## IPS Patcher Release ${{ github.ref_name }}
             
