@@ -13,7 +13,7 @@ Patch files using a .ips patch file.
 
 positional arguments:
   input       Input file to patch
-  patch       The IPS patch file to apply
+  patch       The IPS patch file to apply (.ips or .zip containing .ips)
   output      Output File
 
 options:
