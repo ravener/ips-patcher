@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
+from zipfile import ZipFile, is_zipfile
 
 
 @dataclass
@@ -88,11 +89,35 @@ def patch(rom: bytes, patches: list[Union[Patch, RLEPatch]]) -> bytes:
     return bytes(data)
 
 
+def read_patch_file(path: Path) -> tuple[str, bytes]:
+    """Read IPS patch data from a .ips file or extract it from a .zip file.
+
+    Returns a tuple of (name, data) where name is the patch filename
+    and data is the raw IPS patch bytes.
+    """
+    if is_zipfile(path):
+        with ZipFile(path) as zf:
+            ips_files = [n for n in zf.namelist() if n.lower().endswith(".ips")]
+
+            if not ips_files:
+                raise ValueError(f"No .ips patch file found inside '{path}'")
+
+            if len(ips_files) > 1:
+                print(f"Found multiple .ips files in archive: {', '.join(ips_files)}")
+                print(f"Using first match: {ips_files[0]}")
+
+            return ips_files[0], zf.read(ips_files[0])
+
+    return path.name, path.read_bytes()
+
+
 def main() -> None:
     parser = ArgumentParser(description="Patch files using a .ips patch file.")
 
     parser.add_argument("input", help="Input file to patch")
-    parser.add_argument("patch", help="The IPS patch file to apply")
+    parser.add_argument(
+        "patch", help="The IPS patch file to apply (.ips or .zip containing .ips)"
+    )
     parser.add_argument("output", help="Output File", nargs="?")
 
     args = parser.parse_args()
@@ -102,8 +127,9 @@ def main() -> None:
     output_file = Path(args.output or filename(args.input))
 
     try:
-        print(f"Parsing IPS file '{patch_file}'")
-        patches = parse_ips_file(patch_file.read_bytes())
+        patch_name, patch_data = read_patch_file(patch_file)
+        print(f"Parsing IPS file '{patch_name}'")
+        patches = parse_ips_file(patch_data)
         print(f"Found {len(patches)} patch records")
 
         print(f"Patching file '{input_file}'")
